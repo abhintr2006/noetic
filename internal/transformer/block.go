@@ -53,9 +53,9 @@ func NewTransformerBlock(idx, embedDim, numHeads, ffDim int) *TransformerBlock {
 
 // BlockOutput holds the outputs and instrumentation from one transformer block.
 type BlockOutput struct {
-	Hidden      [][]float64        // [seqLen x embedDim]
-	Snapshots   []AttentionSnapshot
-	Activation  LayerActivation
+	Hidden     [][]float64 // [seqLen x embedDim]
+	Snapshots  []AttentionSnapshot
+	Activation LayerActivation
 }
 
 // Forward processes X through attention → residual → LN → FF → residual → LN.

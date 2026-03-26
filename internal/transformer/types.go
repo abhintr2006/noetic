@@ -40,9 +40,9 @@ type LayerActivation struct {
 
 // CoTStep represents one structured reasoning step extracted from the model.
 type CoTStep struct {
-	Index    int     `json:"index"`
-	StepType string  `json:"step_type"` // "premise" | "inference" | "conclusion" | "tool_call"
-	Text     string  `json:"text"`
+	Index      int     `json:"index"`
+	StepType   string  `json:"step_type"` // "premise" | "inference" | "conclusion" | "tool_call"
+	Text       string  `json:"text"`
 	Confidence float64 `json:"confidence"`
 }
 
