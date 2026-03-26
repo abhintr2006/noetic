@@ -1,180 +1,162 @@
 # CoT Visualization — Go Backend
 
 A production-grade Chain-of-Thought reasoning backend built on a **custom transformer from scratch** in pure Go.
-Captures all four reasoning signal types in a single forward pass.
+Captures all four reasoning signal types in a single forward pass and provides enterprise-grade infrastructure.
 
 ---
 
-## Architecture
+## 🚀 Key Features
 
-```
+- **Custom Transformer**: Built-from-scratch matrix operations, multi-head attention, and layer normalization.
+- **JWT Authentication**: Secure API access with HS256 signed tokens.
+- **Redis Caching**: High-performance caching for expensive reasoning traces.
+- **Apache Kafka Integration**: Event-driven architecture for trace publishing and async inference requests.
+- **SSE Streaming**: Real-time server-sent events for reasoning graph animation.
+- **Zero-CGO Build**: Pure Go implementation for maximum portability.
+
+---
+
+## 🏗️ Architecture
+
+```text
 main.go
 ├── internal/
-│   ├── transformer/
-│   │   ├── types.go       — shared data structures (ReasoningTrace, CoTStep, ToolCall, …)
-│   │   ├── math.go        — matrix ops, softmax, layer norm, positional encoding
-│   │   ├── attention.go   — multi-head self-attention with per-head snapshot extraction
-│   │   ├── block.go       — transformer block (attention + FF + residuals + LN)
-│   │   ├── model.go       — full model: embedding, stacked blocks, decoder
-│   │   └── pipeline.go    — CoT prompt builder, autoregressive generation, step parser
-│   └── api/
-│       └── router.go      — HTTP handlers + SSE streaming endpoint
-└── Dockerfile
+│   ├── transformer/ — Custom transformer model & reasoning pipeline
+│   ├── api/         — Protected HTTP handlers & router
+│   ├── auth/        — JWT issuance, validation & middleware
+│   ├── kafka/       — Producer, Consumer & topic management
+│   └── cache/       — Redis-backed caching results layer
+├── docker-compose.yml — Full stack (App, Kafka, Redis, Zookeeper, UI)
+└── Dockerfile         — Multi-stage alpine build
 ```
-
-### Reasoning Capture Modes
-
-| Mode | Where captured | JSON field |
-|---|---|---|
-| **Prompt-guided CoT** | `pipeline.go` — system prompt + step parser | `cot_steps[]` |
-| **Attention extraction** | `attention.go` — per-head softmax snapshot | `attentions[]` |
-| **Layer activations** | `block.go` — mean |activation| post-FF | `activations[]` |
-| **Tool-call traces** | `pipeline.go` — `<tool>` tag interception | `tool_calls[]` |
 
 ---
 
-## Quick Start
+## 🛠️ Infrastructure Stack
+
+| Service | Purpose | Port |
+| --- | --- | --- |
+| **API** | Main HTTP Backend | `8080` |
+| **Kafka** | Event streaming & Async processing | `9092` |
+| **Redis** | Trace & Activation caching | `6379` |
+| **Kafka UI** | Visual topic management | `8090` |
+
+---
+
+## ⏱️ Quick Start
+
+### Using Docker Compose (Recommended)
+
+The easiest way to start the full stack including Kafka and Redis:
 
 ```bash
-# Install dependencies
+docker-compose up -d
+```
+
+### Manual Development
+
+```bash
+# 1. Install dependencies
 go mod tidy
 
-# Run tests (including benchmarks)
-go test ./... -v
-go test ./internal/transformer/... -bench=. -benchmem
+# 2. Set environment variables (or edit .env)
+export KAFKA_BROKERS=localhost:9092
+export REDIS_URL=redis://localhost:6379
+export AUTH_USERNAME=admin
+export AUTH_PASSWORD=noetic-secret
 
-# Start server
+# 3. Start server
 go run main.go
-
-# With custom port
-PORT=9000 go run main.go
 ```
 
 ---
 
-## API Reference
+## 🔐 Authentication
 
-### `GET /health`
+All `/api/` endpoints are protected by JWT.
+
+### `POST /auth/login`
+
+Get your access token.
+
+#### Example Request
+
+```json
+{
+  "username": "admin",
+  "password": "noetic-secret"
+}
+```
+
+#### Example Response
+
+```json
+{
+  "token": "eyJhbG...",
+  "message": "login successful"
+}
+```
+
+Add the token to your headers: `Authorization: Bearer <your_token>`
+
+---
+
+## 📡 API Reference
+
+### `GET /health` (Public)
+
 ```json
 {"status": "ok", "version": "1.0.0"}
 ```
 
----
+### `POST /api/reason` (Protected)
 
-### `POST /api/reason`
-Full synchronous reasoning trace.
+Full reasoning trace. Checks Redis cache first.
 
-**Request**
+**Header provided**: `X-Cache: HIT` or `MISS`
+
+#### Request Body content
+
 ```json
-{"query": "explain how attention works in transformers"}
+{"query": "explain multi-head attention"}
 ```
 
-**Response** — `ReasoningTrace`
-```json
-{
-  "query": "explain how attention...",
-  "answer": "Therefore the answer follows...",
-  "tokens": ["explain", "how", "attention", "works"],
-  "cot_steps": [
-    {"index": 0, "step_type": "premise", "text": "...", "confidence": 0.87},
-    {"index": 1, "step_type": "inference", "text": "...", "confidence": 0.74},
-    {"index": 2, "step_type": "tool_call", "text": "...", "confidence": 0.61},
-    {"index": 5, "step_type": "conclusion", "text": "...", "confidence": 0.92}
-  ],
-  "attentions": [
-    {"layer": 0, "head": 0, "weights": [[0.9, 0.05, ...], ...]},
-    ...
-  ],
-  "activations": [
-    {"layer": 0, "token_means": [0.42, 0.38, ...]},
-    ...
-  ],
-  "tool_calls": [
-    {"name": "calculator", "inputs": {"query": "..."}, "output": "[simulated result]"}
-  ]
-}
-```
+### `POST /api/reason/stream` (Protected)
+
+SSE stream for live animation. Replays from cache if available.
+
+**Event Types**: `meta`, `cot_step`, `tool_call`, `attention`, `activation`, `done`
+
+### `GET /api/kafka/status` (Protected)
+
+Returns connectivity and topic status.
+
+### `GET /api/cache/status` (Protected)
+
+Returns Redis status and TTL configuration.
 
 ---
 
-### `POST /api/reason/stream`
-Server-Sent Events stream — one event per reasoning artifact for live graph animation.
+## ⚙️ Configuration
 
-**Request**: same as `/api/reason`
-
-**SSE event types**
-```
-event: cot_step     data: {"index":0,"step_type":"premise","text":"...","confidence":0.87}
-event: tool_call    data: {"name":"calculator","inputs":{...},"output":"..."}
-event: attention    data: {"layer":0,"head":0,"weights":[[...]]}
-event: activation   data: {"layer":0,"token_means":[...]}
-event: done         data: {"answer":"..."}
-```
-
-**Frontend usage (JS)**
-```js
-const es = new EventSource('/api/reason/stream'); // use fetch+POST in practice
-es.addEventListener('cot_step', e => addNode(JSON.parse(e.data)));
-es.addEventListener('attention', e => updateHeatmap(JSON.parse(e.data)));
-es.addEventListener('done', e => finalizeGraph(JSON.parse(e.data)));
-```
+| Variable | Default | Description |
+| --- | --- | --- |
+| `PORT` | `8080` | Server port |
+| `KAFKA_BROKERS` | - | Comma-separated broker list |
+| `REDIS_URL` | - | Redis connection URL |
+| `REDIS_CACHE_TTL` | `3600` | Cache expiry in seconds |
+| `JWT_SECRET` | - | JWT signing key |
+| `AUTH_USERNAME` | `admin` | Admin dashboard username |
+| `AUTH_PASSWORD` | - | Admin dashboard password |
 
 ---
 
-### `POST /api/attention/{layer}/{head}`
-Retrieve attention matrix for a specific layer and head.
+## 🧪 Testing
 
 ```bash
-curl -X POST http://localhost:8080/api/attention/0/3 \
-  -H 'Content-Type: application/json' \
-  -d '{"query":"your query here"}'
+# Run all package tests
+go test ./... -v
+
+# Run transformer benchmarks
+go test ./internal/transformer/... -bench=. -benchmem
 ```
-
----
-
-### `POST /api/activations`
-All layer activations for a query.
-
-```bash
-curl -X POST http://localhost:8080/api/activations \
-  -H 'Content-Type: application/json' \
-  -d '{"query":"your query here"}'
-```
-
----
-
-## Docker
-
-```bash
-docker build -t cot-backend .
-docker run -p 8080:8080 cot-backend
-```
-
----
-
-## Extending
-
-### Swap in a real tokenizer (BPE/SentencePiece)
-Replace `Model.Tokenize()` in `model.go` with your tokenizer. The rest of the pipeline is tokenizer-agnostic.
-
-### Load pre-trained weights
-Add a `LoadWeights(path string)` method to `Model` that reads a binary checkpoint and populates the weight matrices. Weight shapes are documented in each struct.
-
-### Add more tool types
-Extend `extractToolCall()` in `pipeline.go` and register handlers in a `ToolRegistry` map.
-
-### Scale attention streaming
-The stream endpoint currently emits layer-0 attention only. Pass `?layers=all` and filter in `router.go` to stream all layers.
-
----
-
-## Config
-
-| Field | Default | Description |
-|---|---|---|
-| `VocabSize` | 32000 | Vocabulary size |
-| `MaxSeqLen` | 512 | Maximum sequence length |
-| `EmbedDim` | 256 | Embedding / hidden dimension |
-| `NumHeads` | 8 | Attention heads per layer |
-| `NumLayers` | 6 | Number of transformer blocks |
-| `FFDim` | 1024 | Feed-forward hidden dimension |
