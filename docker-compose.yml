@@ -56,12 +56,29 @@ services:
       KAFKA_CLUSTERS_0_NAME: noetic-local
       KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29092
 
+  # ── Redis cache ───────────────────────────────────────────────────────────────
+  redis:
+    image: redis:7.2-alpine
+    container_name: noetic-redis
+    ports:
+      - "6379:6379"
+    command: redis-server --save 60 1 --loglevel warning
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   # ── CoT Backend ──────────────────────────────────────────────────────────────
   app:
     build: .
     container_name: noetic-app
     depends_on:
       kafka:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     ports:
       - "8080:8080"
@@ -72,3 +89,11 @@ services:
       KAFKA_TRACE_TOPIC: reasoning-traces
       KAFKA_EVENTS_TOPIC: cot-events
       KAFKA_GROUP_ID: noetic-consumer-group
+      REDIS_URL: redis://redis:6379
+      REDIS_CACHE_TTL: "3600"
+      JWT_SECRET: "change-me-in-production"
+      AUTH_USERNAME: "admin"
+      AUTH_PASSWORD: "noetic-secret"
+
+volumes:
+  redis_data:

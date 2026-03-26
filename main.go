@@ -12,6 +12,7 @@ import (
 	"github.com/rs/cors"
 
 	"cot-backend/internal/api"
+	"cot-backend/internal/cache"
 	"cot-backend/internal/kafka"
 	"cot-backend/internal/transformer"
 )
@@ -31,23 +32,28 @@ func main() {
 	model := transformer.NewModel(cfg)
 	pipeline := transformer.NewPipeline(model)
 
+	// ── Redis cache ────────────────────────────────────────────────────────────
+	// Reads REDIS_URL (e.g. "redis://localhost:6379").
+	// Disabled gracefully when env var is absent or Redis is unreachable.
+	cacheSvc := cache.NewService(os.Getenv("REDIS_URL"))
+	defer cacheSvc.Close()
+
 	// ── Kafka service ──────────────────────────────────────────────────────────
-	// Reads KAFKA_BROKERS from env (e.g. "localhost:9092" or "b1:9092,b2:9092").
-	// If the env var is empty the Kafka service runs in no-op / disabled mode.
+	// Reads KAFKA_BROKERS (e.g. "localhost:9092,localhost:9093").
+	// Disabled gracefully when env var is absent.
 	kafkaSvc := kafka.NewService(os.Getenv("KAFKA_BROKERS"))
 	defer kafkaSvc.Close()
 
-	// Start async consumer: listens on "reasoning-requests" topic, calls pipeline,
-	// and publishes results back to "reasoning-traces".
+	// Start async consumer: listens on "reasoning-requests" topic.
 	kafkaSvc.StartRequestConsumer(ctx, pipeline)
 
 	// ── HTTP router ────────────────────────────────────────────────────────────
-	router := api.NewRouter(model, kafkaSvc)
+	router := api.NewRouter(model, kafkaSvc, cacheSvc)
 
 	handler := cors.New(cors.Options{
 		AllowedOrigins: []string{"*"},
-		AllowedMethods: []string{"GET", "POST", "OPTIONS"},
-		AllowedHeaders: []string{"Content-Type"},
+		AllowedMethods: []string{"GET", "POST", "DELETE", "OPTIONS"},
+		AllowedHeaders: []string{"Content-Type", "Authorization"},
 	}).Handler(router)
 
 	srv := &http.Server{
@@ -72,7 +78,7 @@ func main() {
 	<-quit
 
 	log.Println("shutdown signal received — draining connections…")
-	cancel() // stop Kafka consumer
+	cancel()
 
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer shutdownCancel()
