@@ -5,7 +5,7 @@ Captures all four reasoning signal types in a single forward pass and provides e
 
 ---
 
-## 🚀 Key Features
+## Key Features
 
 - **Custom Transformer**: Built-from-scratch matrix operations, multi-head attention, and layer normalization.
 - **JWT Authentication**: Secure API access with HS256 signed tokens.
@@ -16,7 +16,7 @@ Captures all four reasoning signal types in a single forward pass and provides e
 
 ---
 
-## 🏗️ Architecture
+## Architecture
 
 ```text
 main.go
@@ -32,7 +32,7 @@ main.go
 
 ---
 
-## 🛠️ Infrastructure Stack
+## Infrastructure Stack
 
 | Service | Purpose | Port |
 | --- | --- | --- |
@@ -43,7 +43,7 @@ main.go
 
 ---
 
-## ⏱️ Quick Start
+## Quick Start
 
 ### Using Docker Compose (Recommended)
 
@@ -71,7 +71,7 @@ go run main.go
 
 ---
 
-## 🔐 Authentication
+## Authentication
 
 All `/api/` endpoints are protected by JWT.
 
@@ -101,7 +101,7 @@ Add the token to your headers: `Authorization: Bearer <your_token>`
 
 ---
 
-## 📡 API Reference
+## API Reference
 
 ### `GET /health` (Public)
 
@@ -137,7 +137,7 @@ Returns Redis status and TTL configuration.
 
 ---
 
-## ⚙️ Configuration
+## Configuration
 
 | Variable | Default | Description |
 | --- | --- | --- |
@@ -151,7 +151,7 @@ Returns Redis status and TTL configuration.
 
 ---
 
-## 🧪 Testing
+## Testing
 
 ```bash
 # Run all package tests
