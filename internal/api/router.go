@@ -49,7 +49,6 @@ func NewRouter(model *transformer.Model, kafkaSvc *kafka.Service, cacheSvc *cach
 
 	// ── Public routes ────────────────────────────────────────────────────────
 	mx.HandleFunc("/health", r.health).Methods("GET")
-	mx.HandleFunc("/auth/login", r.login).Methods("POST")
 
 	// ── Protected subrouter — all routes require a valid Bearer JWT ──────────
 	protected := mx.NewRoute().Subrouter()

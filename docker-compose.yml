@@ -91,9 +91,7 @@ services:
       KAFKA_GROUP_ID: noetic-consumer-group
       REDIS_URL: redis://redis:6379
       REDIS_CACHE_TTL: "3600"
-      JWT_SECRET: "change-me-in-production"
-      AUTH_USERNAME: "admin"
-      AUTH_PASSWORD: "noetic-secret"
+      SUPABASE_JWT_SECRET: "your-supabase-jwt-secret-here"
 
 volumes:
   redis_data:

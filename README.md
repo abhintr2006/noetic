@@ -23,7 +23,7 @@ main.go
 ├── internal/
 │   ├── transformer/ — Custom transformer model & reasoning pipeline
 │   ├── api/         — Protected HTTP handlers & router
-│   ├── auth/        — JWT issuance, validation & middleware
+│   ├── auth/        — Supabase JWT validation & middleware
 │   ├── kafka/       — Producer, Consumer & topic management
 │   └── cache/       — Redis-backed caching results layer
 ├── docker-compose.yml — Full stack (App, Kafka, Redis, Zookeeper, UI)
@@ -62,8 +62,7 @@ go mod tidy
 # 2. Set environment variables (or edit .env)
 export KAFKA_BROKERS=localhost:9092
 export REDIS_URL=redis://localhost:6379
-export AUTH_USERNAME=admin
-export AUTH_PASSWORD=noetic-secret
+export SUPABASE_JWT_SECRET=your-actual-secret-here
 
 # 3. Start server
 go run main.go
@@ -71,33 +70,36 @@ go run main.go
 
 ---
 
-## Authentication
+## Authentication (Supabase Auth)
 
-All `/api/` endpoints are protected by JWT.
+All `/api/` endpoints are protected by Supabase JWT. The backend validates tokens signed with your Supabase **JWT Secret**.
 
-### `POST /auth/login`
+### Setup
 
-Get your access token.
+1. Go to your **Supabase Dashboard** → **Project Settings** → **API**.
+2. Copy the **JWT Secret**.
+3. Set the `SUPABASE_JWT_SECRET` environment variable in your backend.
 
-#### Example Request
+### Frontend Integration
 
-```json
-{
-  "username": "admin",
-  "password": "noetic-secret"
-}
-```
+Your frontend should handle the login (via Supabase Auth SDK) and send the resulting access token in the headers of all API requests:
+
+`Authorization: Bearer <SUPABASE_ACCESS_TOKEN>`
+
+### `GET /auth/me` (Protected)
+
+Verify the current Supabase session.
 
 #### Example Response
 
 ```json
 {
-  "token": "eyJhbG...",
-  "message": "login successful"
+  "email": "user@example.com",
+  "user_id": "uuid-v4-string",
+  "issued_at": "...",
+  "expires_at": "..."
 }
 ```
-
-Add the token to your headers: `Authorization: Bearer <your_token>`
 
 ---
 
@@ -145,9 +147,7 @@ Returns Redis status and TTL configuration.
 | `KAFKA_BROKERS` | - | Comma-separated broker list |
 | `REDIS_URL` | - | Redis connection URL |
 | `REDIS_CACHE_TTL` | `3600` | Cache expiry in seconds |
-| `JWT_SECRET` | - | JWT signing key |
-| `AUTH_USERNAME` | `admin` | Admin dashboard username |
-| `AUTH_PASSWORD` | - | Admin dashboard password |
+| `SUPABASE_JWT_SECRET` | - | **Required**: Copy from Supabase Dashboard |
 
 ---
 

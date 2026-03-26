@@ -45,9 +45,9 @@ func Middleware(next http.Handler) http.Handler {
 	})
 }
 
-// ClaimsFromContext retrieves the JWT claims stored by Middleware.
+// ClaimsFromContext retrieves the Supabase JWT claims stored by Middleware.
 // Returns (nil, false) if the request did not pass through Middleware.
-func ClaimsFromContext(ctx context.Context) (*Claims, bool) {
-	c, ok := ctx.Value(ClaimsKey).(*Claims)
+func ClaimsFromContext(ctx context.Context) (*SupabaseClaims, bool) {
+	c, ok := ctx.Value(ClaimsKey).(*SupabaseClaims)
 	return c, ok
 }
